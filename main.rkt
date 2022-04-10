@@ -28,7 +28,7 @@
     (format "error: ~a at line: ~a, column ~a"
       message (istream-line is) (istream-column is))))
 
-(struct token (kind value))
+(struct token (kind value) #:transparent)
 
 (define token-make
   (case-lambda [(kind) (token kind #f)]
@@ -66,3 +66,16 @@
            (loop has-dot?
                  (string-append number (string (istream-next (lexer-istream lexer)))))]
           [else (token-make 'number (string->number number))]))))
+
+(define (lexer-read-identifier lexer)
+  (let loop ([ident (string (istream-next (lexer-istream lexer)))])
+    (if (and (not (istream-eof? (lexer-istream lexer)))
+             (char-ident-tl? (istream-peek (lexer-istream lexer))))
+        (loop (string-append ident (string (istream-next (lexer-istream lexer)))))
+        (token-make 'identifier ident))))
+
+(define lex (lexer-make "123abc123.123.123"))
+(lexer-read-number lex)
+(lexer-read-identifier lex)
+(lexer-read-number lex)
+(lexer-read-number lex)
