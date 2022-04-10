@@ -39,7 +39,7 @@
 (define (char-ident-tl? c)
   (or (char-ident-hd? c) (char-numeric? c)))
 (define (char-operator? c)
-  (member c (string->list "~!@#$%^&*-+=|?<>./")))
+  (member c (string->list "~!@#$%^&*-+=|?<>/")))
 
 (struct lexer (istream [tokens #:mutable]))
 
@@ -74,8 +74,36 @@
         (loop (string-append ident (string (istream-next (lexer-istream lexer)))))
         (token-make 'identifier ident))))
 
-(define lex (lexer-make "123abc123.123.123"))
-(lexer-read-number lex)
-(lexer-read-identifier lex)
-(lexer-read-number lex)
-(lexer-read-number lex)
+(define (lexer-read-operator lexer)
+  (let loop ([operator (string (istream-next (lexer-istream lexer)))])
+    (if (and (not (istream-eof? (lexer-istream lexer)))
+             (char-operator? (istream-peek (lexer-istream lexer))))
+        (loop (string-append operator (string (istream-next (lexer-istream lexer)))))
+        (token-make 'operator operator))))
+
+(define (lexer-read-next lexer)
+  (lexer-read-while lexer char-whitespace?)
+  (if (istream-eof? (lexer-istream lexer))
+      (token-make 'eof "")
+      (let ([c (istream-peek (lexer-istream lexer))])
+        (cond [(or (char-numeric? c) (char=? #\. c))
+               (lexer-read-number lexer)]
+              [(char-ident-hd? c) (lexer-read-identifier lexer)]
+              [(char-operator? c) (lexer-read-operator lexer)]
+              [(char=? #\() (token-make 'lparen (string (istream-next (lexer-istream lexer))))]
+              [(char=? #\) (token-make 'rparen (string (istream-next (lexer-istream lexer)))))]
+              [(char=? #\{) (token-make 'lcurly (string (istream-next (lexer-istream lexer))))]
+              [(char=? #\}) (token-make 'rcurly (string (istream-next (lexer-istream lexer))))]
+              [(char=? #\;) (token-make 'semi (string (istream-next (lexer-istream lexer))))]
+              [else (raise "unexpected character")]))))
+
+(define (lexer-eof? lexer)
+  (istream-eof? (lexer-istream lexer)))
+
+(define lex (lexer-make "fun () { x = 1 }"))
+(let loop ()
+  (unless (lexer-eof? lex)
+    (displayln (format "~v" (lexer-read-next lex)))
+    (loop)))
+
+
